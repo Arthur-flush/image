@@ -204,7 +204,7 @@ void sortOccurencesList(couple *list, uint n) { //bubble sort cause it's easy to
     while (!sorted) {
         sorted = true;
         for (int i = 0; i < n-1; i++) {
-            if (list[i].occ < list[i+1].occ) {
+            if (list[i].occ > list[i+1].occ) {
                 sorted = false;
                 couple tmp = list[i];
                 list[i] = list[i+1];
@@ -214,12 +214,12 @@ void sortOccurencesList(couple *list, uint n) { //bubble sort cause it's easy to
     }
 }
 
-void sortTreeHeap(nodeH **TreeHeap, uint n) {
+void sortTreeHeap(nodeH **TreeHeap, uint n, uint offset) {
     bool sorted = false;
     while (!sorted) {
         sorted = true;
-        for (int i = 0; i < n-1; i++) {
-            if (TreeHeap[i]->key.occ < TreeHeap[i+1]->key.occ) {
+        for (int i = offset; i < n-1; i++) {
+            if (TreeHeap[i]->key.occ > TreeHeap[i+1]->key.occ) {
                 sorted = false;
                 nodeH* tmp = TreeHeap[i];
                 TreeHeap[i] = TreeHeap[i+1];
@@ -285,10 +285,10 @@ nodeH* buildHuffmanTree(couple *list, uint n) {
         TreeHeap[i] = create_nodeHuffman(list[i], NULL, NULL);
     
 
-    uint list_end = n-1;
-    while (list_end > 0) {
-        nodeH* last1 = TreeHeap[list_end];
-        nodeH* last2 = TreeHeap[list_end-1];
+    uint at = 0;
+    while (at < n-1) {
+        nodeH* last1 = TreeHeap[at];
+        nodeH* last2 = TreeHeap[at+1];
 
         couple key;
         key.ch = '\0';
@@ -296,12 +296,12 @@ nodeH* buildHuffmanTree(couple *list, uint n) {
         
         nodeH* NewNode = create_nodeHuffman(key, last1, last2);
 
-        list_end--;
-        TreeHeap[list_end] = NewNode;
-        sortTreeHeap(TreeHeap, list_end+1);
+        at++;
+        TreeHeap[at] = NewNode;
+        sortTreeHeap(TreeHeap, n, at);
     }
 
-    return TreeHeap[0];
+    return TreeHeap[n-1];
 }
 
 
@@ -385,6 +385,8 @@ int main(int argc, char** argv) {
     couple* couples = readfile(argv[1], &size);
     sortOccurencesList(couples, size);
 
+    
+
     nodeH* tree = buildHuffmanTree(couples, size);
 
     code* CodeTable = builCodeTable(couples, size, tree);
@@ -406,9 +408,9 @@ int main(int argc, char** argv) {
     uint l1 = stringlen(data);
     uint l2 = stringlen(encoded_data);
     printf("Longueur de la compression : %d bits\n", l2);
-    printf("Longueur du message initial : %dx8 = %d bits\n\n", l1, l1*8); // in most modern OS even plain ascii files 8 bit words
+    printf("Longueur du message initial : %dx7 = %d bits\n\n", l1, l1*7);
 
-    printf("Taux de compression : %f\n", (float)l2 / (float)(l1 * 8));
+    printf("Taux de compression : %f\n", (float)l2 / (float)(l1 * 7));
 
     free_treeHuffman(tree);
     free(couples);

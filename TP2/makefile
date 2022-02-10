@@ -2,6 +2,8 @@ CC=gcc
 CFLAGS = -Wall -Werror
 EXEC = huffman
 DEBUG = gdb
+FILENAME = bienvenue.txt
+
 
 .PHONY: clean
 
@@ -13,11 +15,11 @@ install: TP2.c
 
 #kinda cursed
 run: 
-	./$(EXEC) bienvenue.txt
+	./$(EXEC) $(FILENAME)
 
 #very cursed
 debug:
-	$(DEBUG) ./$(EXEC)
+	$(DEBUG) --args ./$(EXEC) $(FILENAME)
 
 clean: 
 	rm $(EXEC)
