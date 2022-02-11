@@ -315,6 +315,21 @@ void free_treeHuffman(nodeH* root) {
     free(root);
 }
 
+bool str_larger_than_binary(char* str1, char* str2, int n1, int n2) { // compares str1 > str2. n1 and n2 are the size of their respective string. needs str as string of binary numbers
+    bool largest_string = n1 > n2 ? true : false; // assumes no leading zeros
+    int smallest_n = n1 > n2 ? n1 : n2;
+
+    for (int i = 0; i < smallest_n; i++) {
+        if (str1[i] > str2[i]) {
+            return true;
+        }
+        if (str2[i] > str1[i]) {
+            return false;
+        }
+    }
+    return largest_string;
+}
+
 code* builCodeTable(couple *list, uint n, nodeH* root) {
     code* CodeTable = malloc(sizeof(code) * n);
     for (int i = 0; i < n; i++) {
@@ -328,12 +343,26 @@ code* builCodeTable(couple *list, uint n, nodeH* root) {
             exit(1);
         }
 
-        char* C = malloc(n);
+        char* C = malloc(n+1);
         for (int i = 0; i < n; i++)
             C[i] = c[i];
-        
+        C[n] = '\0';
         CodeTable[i].code = C;
         CodeTable[i].n = n;
+    }
+
+    //sort by code
+    bool sorted = false;
+    while (!sorted) {
+        sorted = true;
+        for (int i = 0; i < n-1; i++) {
+            if (str_larger_than_binary(CodeTable[i].code, CodeTable[i+1].code, CodeTable[i].n, CodeTable[i+1].n)) {
+                sorted = false;
+                code tmp = CodeTable[i];
+                CodeTable[i] = CodeTable[i+1];
+                CodeTable[i+1] = tmp;
+            }
+        }
     }
 
     return CodeTable;
@@ -372,8 +401,11 @@ int main(int argc, char** argv) {
     }
 
     FILE* file = fopen(argv[1], "r");
-    char* data = malloc(256); // should be enough for testing 
-    if (!fscanf(file, "%s", data)) {
+    char* data = malloc(4096); // should be enough for testing and works for both text files 
+    fseek(file, 0, SEEK_END); 
+    long fsize = ftell(file);
+    fseek(file, 0, SEEK_SET);  
+    if (!fread(data, 1, fsize, file)) {
         perror("invalid file");
         exit(1);
     }
@@ -403,14 +435,15 @@ int main(int argc, char** argv) {
     putchar('\n');
 
     char* encoded_data = compressString(data, CodeTable, size);
-    printf("message compresse : \n\n%s\n", encoded_data);
+    printf("Message compresse : \n\n%s\n", encoded_data);
 
     uint l1 = stringlen(data);
     uint l2 = stringlen(encoded_data);
+    putchar('\n');
     printf("Longueur de la compression : %d bits\n", l2);
     printf("Longueur du message initial : %dx7 = %d bits\n\n", l1, l1*7);
 
-    printf("Taux de compression : %f\n", (float)l2 / (float)(l1 * 7));
+    printf("Taux de compression : %.3f\n", (float)l2 / (float)(l1 * 7));
 
     free_treeHuffman(tree);
     free(couples);
