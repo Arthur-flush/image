@@ -46,27 +46,6 @@ void free_tree(node* root) {
     free(root);
 }
 
-void _printTree(node* root, int tab) { // custom tree printing function
-    if (root == NULL) {
-        
-        return;
-    }
-
-    for (int i = 0; i < tab; i++) 
-        printf("|  ");
-    
-    
-    printf("%d\n", root->key);
-
-    _printTree(root->left, tab+1);
-    _printTree(root->right, tab+1);
-}
-
-void printTree(node* root) {
-    _printTree(root, 0);
-}
-
-
 
 uint nbLeafs(node* root) {
     if ((root->left == NULL) && (root->right) == NULL)
