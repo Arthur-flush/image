@@ -47,7 +47,7 @@ uint charOccurenceInString(char c, char* str) {
 uint nbDifferentChar(char *str) { //assuming ascii
     uint count = 0;
     char chars[256] = {0};
-    while (*str != 0x00) {
+    while (*str != '\0') {
         str++;
         chars[(uint)*str]++;
     }
@@ -92,7 +92,7 @@ couple* getOccurencesList(char *str, uint* return_size) {
 }
 
 
-int main(int argc, char* argv) {
+int main(int argc, char** argv) {
     
     if (argc != 2) {
         perror("Error: wrong argument number\nusage: main <filename>");
