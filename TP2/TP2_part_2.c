@@ -86,14 +86,14 @@ void sortTreeHeap(node **TreeHeap, uint n, uint offset) {
 }
 
 void printTreePre(node *root) {
-    printf("{(%c, %d), ", root->key.ch, root->key.occ);
+    printf("{(%c, %u), ", root->key.ch, root->key.occ);
     if (root->left != NULL) 
-        printf("(%c, %d), ", root->left->key.ch, root->left->key.occ);
+        printf("(%c, %u), ", root->left->key.ch, root->left->key.occ);
     else
         printf("NULL, ");
     
     if (root->right != NULL)
-        printf("(%c, %d)}\n", root->right->key.ch, root->right->key.occ);
+        printf("(%c, %u)}\n", root->right->key.ch, root->right->key.occ);
     else
         printf("NULL}\n");
     
@@ -135,6 +135,26 @@ int getCode(couple key, node* root, char code[], uint* n) {
     return 0;
 }
 
+void printTree(node *node, int h)
+{
+    if(node->right != NULL)
+        printTree(node->right, h+1);
+    
+    int i;
+    for(i = 0; i < h; i++)
+    {
+        printf("\t");
+    }
+    
+    if(node->key.ch != '\n')
+        printf("%c:%d\n", node->key.ch, node->key.occ);
+    else
+        printf("\\n:%d\n", node->key.occ);
+    
+    if(node->left != NULL)
+        printTree(node->left, h+1);
+}
+
 node* buildHuffmanTree(couple *list, uint n) {
     node** TreeHeap = malloc(sizeof(node*) * n);
     for (int i = 0; i < n; i++)
@@ -156,8 +176,9 @@ node* buildHuffmanTree(couple *list, uint n) {
         TreeHeap[at] = NewNode;
         sortTreeHeap(TreeHeap, n, at);
     }
-
-    return TreeHeap[n-1];
+    node* huffmanTree = TreeHeap[n-1];
+    free(TreeHeap);
+    return huffmanTree;
 }
 
 
@@ -296,8 +317,8 @@ int main(int argc, char** argv) {
     uint l1 = stringlen(data);
     uint l2 = stringlen(encoded_data);
     putchar('\n');
-    printf("Longueur de la compression : %d bits\n", l2);
-    printf("Longueur du message initial : %dx7 = %d bits\n\n", l1, l1*7);
+    printf("Longueur de la compression : %u bits\n", l2);
+    printf("Longueur du message initial : %ux7 = %u bits\n\n", l1, l1*7u);
 
     printf("Taux de compression : %.3f\n", (float)l2 / (float)(l1 * 7));
 
@@ -305,4 +326,7 @@ int main(int argc, char** argv) {
     free(couples);
     free(data);
     free(encoded_data);
+    for (int i = 0; i < size; i++)
+        free(CodeTable[i].code);
+    free(CodeTable);
 }
