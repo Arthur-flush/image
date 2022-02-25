@@ -2,14 +2,23 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define PI 3.141592653589793
+#define PI 3.14159265358979323846264338327950288419716
 
 typedef unsigned int uint;
 typedef unsigned char uchar;
 
 typedef enum { false, true } bool;
 
-
+double Q[8][8] = {
+    {16, 11, 10, 16, 24, 40, 51, 61},
+    {12, 12, 14, 19, 26, 58, 60, 55},
+    {14, 13, 16, 24, 40, 57, 69, 56},
+    {14, 17, 22, 29, 51, 87, 80, 62},
+    {18, 22, 37, 56, 68, 109, 103, 77},
+    {24, 35, 55, 64, 81, 104, 113, 92},
+    {49, 64, 78, 87, 103, 121, 120, 101},
+    {72, 92, 95, 98, 112, 100, 103, 99},
+};
 
 typedef struct RGB_t {
     uchar R, G, B;
@@ -271,11 +280,11 @@ void extract_block(picture *pic, double block[8][8], int x, int y) {
 }
 
 double C(int z) {
-    if (z > 0) {
-        return 1; 
+    if (z > 0) { // what ??
+        return 0.353553390593; 
     }
     else
-        return 0.7071067811865475;
+        return 0.25;
 }
 
 void DCT(double block[8][8]) {
@@ -283,13 +292,79 @@ void DCT(double block[8][8]) {
 
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
-            data[i][j] = 4 * C(i) * C(j);
+            double sum = 0;
             for (int x = 0; x < 8; x++) {
                 for (int y = 0; y < 8; y++) {
-                    data[i][j] *= block[x][y] * cos(((2*x+1)*i*PI)/16) * cos(((2*y+1)*j*PI)/16);
-                    
+                    float dct1 = block[x][y] *
+                           cos((2 * x + 1) * i * M_PI / (2 * 8)) *
+                           cos((2 * y + 1) * j * M_PI / (2 * 8));
+                    sum += dct1;
                 }
             }
+            data[i][j] = 2 * C(i) * C(j) * sum;
+        }
+    }
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            block[i][j] = data[i][j];
+        }
+    }
+}
+
+void quantify(double block[8][8]) {
+    for (int i = 0; i < 8; i ++) {
+        for (int j = 0; j < 8; j++) {
+            block[i][j] /= Q[i][j];
+        }
+    }
+}
+void zigzag_extraction(double block[8][8], int zigzag[64]) {
+    int x = 0;
+    int y = 1;
+    int i = 1;
+    zigzag[0] = round(block[0][0]);
+    while ((x != 8) && (y != 8)) {
+        while (1) {
+            zigzag[i] = round(block[x][y]);
+            i++;
+            if (x + 1 >= 8) {
+                y++;
+                break;
+            }
+            if (y - 1 < 0) {
+                x++;
+                break;
+            }
+            x++;
+            y--;
+        }
+        while(1) {
+            zigzag[i] = round(block[x][y]);
+            i++;
+            if (x - 1 < 0) {
+                y++;
+                break;
+            }
+            if (y + 1 >= 8) {
+                x++;
+                break;
+            }
+            x--;
+            y++;
+        }
+    }
+}
+
+void compress_RLE(FILE *f, int zigzag[64]) {
+    for (int i = 0; i < 64; i++) {
+        if (zigzag[i] != 0)
+            fprintf(f, "%d\n", zigzag[i]);
+        else {
+            int k = 0;
+            while (zigzag[i + k] == 0) 
+                k++;
+            fprintf(f, "@%d\n", k);
+            i += k-1;
         }
     }
 }
@@ -299,10 +374,49 @@ int main(int argc, char** argv) {
     if (argc == 2) 
         filename = argv[1];
     else {
-        perror("wrong argument ammount");
-        exit(1);
+        // perror("wrong argument ammount");
+        // exit(1);
+        filename = "exemple.ppm";
     }
 
     picture *pic = get_picture(filename);
 
+    double pixels[8][8] = {
+        {139, 144, 149, 153, 155, 155, 155, 155},
+        {144, 151, 153, 156, 159, 156, 156, 156},
+        {150, 155, 160, 163, 158, 156, 156, 156},
+        {159, 161, 162, 160, 160, 159, 159, 159},
+        {159, 160, 161, 162, 162, 155, 155, 155},
+        {161, 161, 161, 161, 160, 157, 157, 157},
+        {162, 162, 161, 163, 162, 157, 157, 157},
+        {162, 162, 161, 161, 163, 158, 158, 158}
+    };
+
+    DCT(pixels);
+    quantify(pixels);
+    int zigzag[64] = {0};
+    zigzag_extraction(pixels, zigzag);
+
+    FILE *fp = fopen("test.txt", "w");
+
+    compress_RLE(fp, zigzag);
+
+    fclose(fp);
+
+    printf("{\n");
+    for (int i = 0; i < 8; i++) {
+        printf("{");
+        for (int j = 0; j < 7; j++) {
+            printf("%.0lf, ", round(pixels[i][j]));
+        }
+        printf("%.0lf}\n", round(pixels[i][7]));
+    }
+    printf("}\n");
+
+    for (int i = 0; i < 64; i++) {
+        printf("%d ", zigzag[i]);
+    }
+    printf("\n");
+
+    free_pic(pic);
 }
