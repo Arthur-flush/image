@@ -369,6 +369,16 @@ void compress_RLE(FILE *f, int zigzag[64]) {
     }
 }
 
+void jpeg_compression(picture *image, char *filename) {
+    FILE *fp = fopen(filename, "w");
+    fprintf(fp ,"JPEG\n");
+    fprintf(fp, "%d %d", image->width, image->height);
+
+    
+
+    fclose(fp);
+}
+
 int main(int argc, char** argv) {
     char * filename;
     if (argc == 2) 
