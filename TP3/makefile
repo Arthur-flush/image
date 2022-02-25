@@ -1,15 +1,15 @@
 CC=gcc
-CFLAGS = -Wall -Werror
-EXEC = jpeg
+CFLAGS = -Wall -Werror 
+EXEC = main
 
 
 .PHONY: clean
 
 default: main.c 
-	$(CC) $(CFLAGS) -g $? -o $(EXEC)
+	$(CC) $(CFLAGS) -g $? -o $(EXEC) -lm
 
 install: main.c
-	$(CC) $(CFLAGS) -O2 $? -o $(EXEC)
+	$(CC) $(CFLAGS) -O2 $? -o $(EXEC) -lm
 
 run:
 	./$(EXEC)
