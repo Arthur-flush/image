@@ -252,7 +252,7 @@ void write_picture(picture *image, char *filename, bool binary) {
     fclose(fp);
 }
 
-double get_Y_component_from_RGB(RGB pixel, uint max) { 
+double get_Y_component_from_RGB(RGB pixel) { 
 
     double Y = .299 * pixel.R + .587 * pixel.G + .114 * pixel.B;
 
@@ -269,7 +269,7 @@ picture *ppm_to_pgm(picture *pic) {
     for (int i = 0; i < pic->height; i++) {
         new_pic->pixels[i] = malloc(new_pic->width);
         for (int j = 0; j < pic->width; j++) {
-            double v = get_Y_component_from_RGB(pic->pixels_rgb[i][j], pic->value_max);
+            double v = get_Y_component_from_RGB(pic->pixels_rgb[i][j]);
             v = round(v);
             new_pic->pixels[i][j] = (uchar)v;
         }

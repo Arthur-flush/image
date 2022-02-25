@@ -5,10 +5,10 @@ EXEC = main
 
 .PHONY: clean
 
-default: main.c 
+default: part2.c 
 	$(CC) $(CFLAGS) -g $? -o $(EXEC) -lm
 
-install: main.c
+install: part2.c
 	$(CC) $(CFLAGS) -O2 $? -o $(EXEC) -lm
 
 run:
