@@ -39,11 +39,18 @@ picture *get_picture(char *file_name) {
         while (getc(fp) == '#') 
             while (getc(fp) != '\n');
         
-        int width, length, max;
+        uint width, length, max;
         fseek(fp, -1, SEEK_CUR);
-        fscanf(fp, "%d %d", &width, &length);
+
+        if (fscanf(fp, "%u %u", &width, &length) != 2) {
+            perror("cannot read width and length in file\n");
+            exit(1);
+        }
         
-        fscanf(fp, "%d", &max);
+        if (fscanf(fp, "%u", &max) != 1) {
+            perror("cannot read maximum value in file\n");
+            exit(1);
+        }
 
         pic->height = length;
         pic->width = width;
@@ -66,7 +73,10 @@ picture *get_picture(char *file_name) {
 
             for (int j = 0; j < width; j++) {
                 uint c;
-                fscanf(fp, "%u", &c);
+                if (fscanf(fp, "%u", &c) != 1) {
+                    perror("cannot read value in file\n");
+                    exit(1);
+                }
                 pic->pixels[i][j] = (uchar)c;
             }
         }
@@ -81,9 +91,15 @@ picture *get_picture(char *file_name) {
         
         uint width, length, max;
         fseek(fp, -1, SEEK_CUR);
-        fscanf(fp, "%u %u", &width, &length);
+        if (fscanf(fp, "%u %u", &width, &length) != 2) {
+            perror("cannot read width and length in file\n");
+            exit(1);
+        }
         
-        fscanf(fp, "%u", &max);
+        if (fscanf(fp, "%u", &max) != 1) {
+            perror("cannot read maximum value in file\n");
+            exit(1);
+        }
 
         pic->height = length;
         pic->width = width;
@@ -106,7 +122,10 @@ picture *get_picture(char *file_name) {
             
             for (int j = 0; j < width; j++) {
                 uint R, G, B;
-                fscanf(fp, "%u %u %u", &R, &G, &B);
+                if (fscanf(fp, "%u %u %u", &R, &G, &B) != 3) {
+                    perror("cannot read value of rgb pixel");
+                    exit(1);
+                }
                 RGB pix;
                 pix.R = (uchar)R;
                 pix.G = (uchar)G; 
@@ -126,9 +145,15 @@ picture *get_picture(char *file_name) {
         
         int width, length, max;
         fseek(fp, -1, SEEK_CUR);
-        fscanf(fp, "%d %d", &width, &length);
+        if (fscanf(fp, "%u %u", &width, &length) != 2) {
+            perror("cannot read width and length in file\n");
+            exit(1);
+        }
         
-        fscanf(fp, "%d", &max);
+        if (fscanf(fp, "%u", &max) != 1) {
+            perror("cannot read maximum value in file\n");
+            exit(1);
+        }
 
         pic->height = length;
         pic->width = width;
@@ -147,7 +172,10 @@ picture *get_picture(char *file_name) {
                 perror("error while malloc pic->pixels[i]");
                 exit(1);
             }
-        fread(pic->pixels[i], 1, width, fp);
+            if (fread(pic->pixels[i], 1, width, fp) != width) {
+                perror("cannot read pixels in file");
+                exit(1);
+            }
         }
     }
     if (specification == '6') {
@@ -159,9 +187,15 @@ picture *get_picture(char *file_name) {
         
         int width, length, max;
         fseek(fp, -1, SEEK_CUR);
-        fscanf(fp, "%d %d", &width, &length);
+        if (fscanf(fp, "%u %u", &width, &length) != 2) {
+            perror("cannot read width and length in file\n");
+            exit(1);
+        }
         
-        fscanf(fp, "%d", &max);
+        if (fscanf(fp, "%u", &max) != 1) {
+            perror("cannot read maximum value in file\n");
+            exit(1);
+        }
 
         pic->height = length;
         pic->width = width;
@@ -180,7 +214,11 @@ picture *get_picture(char *file_name) {
                 perror("error while malloc pic->pixels[i]");
                 exit(1);
             }
-            fread(pic->pixels_rgb[i], 3, width, fp);
+            if (fread(pic->pixels_rgb[i], 3, width, fp) != width) {
+                perror("cannot read pixels in file");
+                exit(1);
+            }
+            
         }
     }
     fclose(fp);

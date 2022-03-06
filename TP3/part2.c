@@ -49,11 +49,18 @@ picture *get_picture(char *file_name) {
         while (getc(fp) == '#') 
             while (getc(fp) != '\n');
         
-        int width, length, max;
+        uint width, length, max;
         fseek(fp, -1, SEEK_CUR);
-        fscanf(fp, "%d %d", &width, &length);
+
+        if (fscanf(fp, "%u %u", &width, &length) != 2) {
+            perror("cannot read width and length in file\n");
+            exit(1);
+        }
         
-        fscanf(fp, "%d", &max);
+        if (fscanf(fp, "%u", &max) != 1) {
+            perror("cannot read maximum value in file\n");
+            exit(1);
+        }
 
         pic->height = length;
         pic->width = width;
@@ -76,7 +83,10 @@ picture *get_picture(char *file_name) {
 
             for (int j = 0; j < width; j++) {
                 uint c;
-                fscanf(fp, "%u", &c);
+                if (fscanf(fp, "%u", &c) != 1) {
+                    perror("cannot read value in file\n");
+                    exit(1);
+                }
                 pic->pixels[i][j] = (uchar)c;
             }
         }
@@ -91,9 +101,15 @@ picture *get_picture(char *file_name) {
         
         uint width, length, max;
         fseek(fp, -1, SEEK_CUR);
-        fscanf(fp, "%u %u", &width, &length);
+        if (fscanf(fp, "%u %u", &width, &length) != 2) {
+            perror("cannot read width and length in file\n");
+            exit(1);
+        }
         
-        fscanf(fp, "%u", &max);
+        if (fscanf(fp, "%u", &max) != 1) {
+            perror("cannot read maximum value in file\n");
+            exit(1);
+        }
 
         pic->height = length;
         pic->width = width;
@@ -116,7 +132,10 @@ picture *get_picture(char *file_name) {
             
             for (int j = 0; j < width; j++) {
                 uint R, G, B;
-                fscanf(fp, "%u %u %u", &R, &G, &B);
+                if (fscanf(fp, "%u %u %u", &R, &G, &B) != 3) {
+                    perror("cannot read value of rgb pixel");
+                    exit(1);
+                }
                 RGB pix;
                 pix.R = (uchar)R;
                 pix.G = (uchar)G; 
@@ -136,9 +155,15 @@ picture *get_picture(char *file_name) {
         
         int width, length, max;
         fseek(fp, -1, SEEK_CUR);
-        fscanf(fp, "%d %d", &width, &length);
+        if (fscanf(fp, "%u %u", &width, &length) != 2) {
+            perror("cannot read width and length in file\n");
+            exit(1);
+        }
         
-        fscanf(fp, "%d", &max);
+        if (fscanf(fp, "%u", &max) != 1) {
+            perror("cannot read maximum value in file\n");
+            exit(1);
+        }
 
         pic->height = length;
         pic->width = width;
@@ -157,7 +182,10 @@ picture *get_picture(char *file_name) {
                 perror("error while malloc pic->pixels[i]");
                 exit(1);
             }
-        fread(pic->pixels[i], 1, width, fp);
+            if (fread(pic->pixels[i], 1, width, fp) != width) {
+                perror("cannot read pixels in file");
+                exit(1);
+            }
         }
     }
     if (specification == '6') {
@@ -169,9 +197,15 @@ picture *get_picture(char *file_name) {
         
         int width, length, max;
         fseek(fp, -1, SEEK_CUR);
-        fscanf(fp, "%d %d", &width, &length);
+        if (fscanf(fp, "%u %u", &width, &length) != 2) {
+            perror("cannot read width and length in file\n");
+            exit(1);
+        }
         
-        fscanf(fp, "%d", &max);
+        if (fscanf(fp, "%u", &max) != 1) {
+            perror("cannot read maximum value in file\n");
+            exit(1);
+        }
 
         pic->height = length;
         pic->width = width;
@@ -190,7 +224,11 @@ picture *get_picture(char *file_name) {
                 perror("error while malloc pic->pixels[i]");
                 exit(1);
             }
-            fread(pic->pixels_rgb[i], 3, width, fp);
+            if (fread(pic->pixels_rgb[i], 3, width, fp) != width) {
+                perror("cannot read pixels in file");
+                exit(1);
+            }
+            
         }
     }
     fclose(fp);
@@ -334,7 +372,7 @@ void extract_block(picture *pic, double block[8][8], int x, int y) {
 }
 
 double C(int z) {
-    if (z > 0) { // what ??
+    if (z == 0) { 
         return 0.70711; 
     }
     else
@@ -430,10 +468,22 @@ void compress_RLE(FILE *f, int zigzag[64]) {
             while (zigzag[i + k - 2] == 0) 
                 k++;
             fprintf(f, "@%d\n", k);
-            i += k-1;
+            i += k-3;
             zeros = 0;
         }
     }
+}
+
+void printblock(double block[8][8]) {
+
+    for (int i = 0; i < 8; i++) {
+        printf("[");
+        for (int j = 0; j < 7; j++) {
+            printf("%lf, ", block[i][j]);
+        }
+        printf("%lf]\n", block[i][7]);
+    }
+    printf("\n");
 }
 
 void jpeg_compression(picture *image, char *filename) {
@@ -463,6 +513,36 @@ void jpeg_compression(picture *image, char *filename) {
     fclose(fp);
 }
 
+
+uint file_size(char *filename) {
+    FILE* fp = fopen(filename, "r");
+
+    fseek(fp, 0L, SEEK_END);
+    uint size = ftell(fp); // might cause problems if file size is bigger than 2^32
+
+    fclose(fp);
+    return size;
+}
+
+picture *ppm_to_pgm(picture *pic) {
+    picture *new_pic = malloc(sizeof(picture));
+    new_pic->height = pic->height;
+    new_pic->width = pic->width;
+    new_pic->type = 0;
+    new_pic->value_max = pic->value_max;
+    new_pic->pixels = malloc(sizeof(uchar*) * new_pic->height);
+    for (int i = 0; i < pic->height; i++) {
+        new_pic->pixels[i] = malloc(new_pic->width);
+        for (int j = 0; j < pic->width; j++) {
+            double v = get_Y_component_from_RGB(pic->pixels_rgb[i][j]);
+            v = round(v);
+            new_pic->pixels[i][j] = (uchar)v;
+        }
+    }
+
+    return new_pic;
+}
+
 int main(int argc, char** argv) {
     char * filename;
     if (argc == 2) 
@@ -485,22 +565,40 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    char *new_filename = malloc(0);
-    int new_filename_length = 0;
+    char *jpeg_filename = malloc(0);
+    jpeg_filename = malloc(period_pos+5);
     for (int i = 0; i < period_pos; i++) {
-        new_filename = realloc(new_filename, ++new_filename_length);
-        new_filename[new_filename_length-1] = filename[i];   
+        jpeg_filename[i] = filename[i];   
     }
     
-    new_filename = realloc(new_filename, new_filename_length+4);
-    new_filename[new_filename_length] = '.';
-    new_filename[new_filename_length+1] = 'j';
-    new_filename[new_filename_length+2] = 'p';
-    new_filename[new_filename_length+3] = 'g';
+    jpeg_filename[period_pos] = '.';
+    jpeg_filename[period_pos+1] = 'j';
+    jpeg_filename[period_pos+2] = 'p';
+    jpeg_filename[period_pos+3] = 'e';
+    jpeg_filename[period_pos+4] = 'g';
+
 
     picture *pic = get_picture(filename);
 
-    jpeg_compression(pic, new_filename);
+    jpeg_compression(pic, jpeg_filename);
+
+    picture* pgm_pic = ppm_to_pgm(pic);
+    char *pgm_filename = malloc(period_pos+4);
+    for (int i = 0; i < period_pos; i++) {
+        pgm_filename[i] = filename[i];
+    }
+    pgm_filename[period_pos]   = '.';
+    pgm_filename[period_pos+1] = 'p';
+    pgm_filename[period_pos+2] = 'g';
+    pgm_filename[period_pos+3] = 'm';
+    write_picture(pgm_pic, pgm_filename, false);
 
     free_pic(pic);
+
+    uint pgm_file_size = file_size(pgm_filename);
+    uint jpeg_file_size = file_size(jpeg_filename);
+    printf("le fichier %s fait %u octets\n", pgm_filename, pgm_file_size);
+    printf("le fichier %s fait %u octets\n", jpeg_filename, jpeg_file_size);
+
+    printf("le taux de compression de ce fichier est de %.2f\n", (float)jpeg_file_size/(float)pgm_file_size);
 }
