@@ -270,21 +270,75 @@ double get_Y_component_from_RGB(RGB pixel) {
 }
 
 void extract_block(picture *pic, double block[8][8], int x, int y) {
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            RGB pix = pic->pixels_rgb[x+i][y+j];
-            double Y = get_Y_component_from_RGB(pix);
-            block[i][j] = Y;
+    if (pic->height - x >= 8) {
+        for (int i = 0; i < 8; i++) {
+            if (pic->width - y >= 8) {
+                for (int j = 0; j < 8; j++) {
+                    RGB pix = pic->pixels_rgb[x+i][y+j];
+                    double Y = get_Y_component_from_RGB(pix);
+                    block[i][j] = Y;
+                }
+            }
+            else {
+                int y_to_8 = 8 - (pic->width - y);
+                for (int j = 0; j < y_to_8; j++) {
+                    RGB pix = pic->pixels_rgb[x+i][y+j];
+                    double Y = get_Y_component_from_RGB(pix);
+                    block[i][j] = Y;
+                }
+                for (int j = 0; j < 8-y_to_8; j++) {
+                    block[i][j] = 0;
+                }
+            }
+        }
+    } 
+    else {
+        int x_to_8 = 8 - (pic->width - x);
+        for (int i = 0; i < x_to_8; i++) {
+            if (pic->width - y >= 8) {
+                for (int j = 0; j < 8; j++) {
+                    RGB pix = pic->pixels_rgb[x+i][y+j];
+                    double Y = get_Y_component_from_RGB(pix);
+                    block[i][j] = Y;
+                }
+            }
+            else {
+                int y_to_8 = 8 - (pic->width - y);
+                for (int j = 0; j < y_to_8; j++) {
+                    RGB pix = pic->pixels_rgb[x+i][y+j];
+                    double Y = get_Y_component_from_RGB(pix);
+                    block[i][j] = Y;
+                }
+                for (int j = 0; j < 8-y_to_8; j++) {
+                    block[i][j] = 0;
+                }
+            }
+        }
+        for (int i = 0; i < 8 - x_to_8; i++) {
+            if (pic->width - y >= 8) {
+                for (int j = 0; j < 8; j++) {
+                    block[i][j] = 0;
+                }
+            }
+            else {
+                int y_to_8 = 8 - (pic->width - y);
+                for (int j = 0; j < y_to_8; j++) {
+                    block[i][j] = 0;
+                }
+                for (int j = 0; j < 8-y_to_8; j++) {
+                    block[i][j] = 0;
+                }
+            }
         }
     }
 }
 
 double C(int z) {
     if (z > 0) { // what ??
-        return 0.353553390593; 
+        return 0.70711; 
     }
     else
-        return 0.25;
+        return 1;
 }
 
 void DCT(double block[8][8]) {
@@ -301,7 +355,7 @@ void DCT(double block[8][8]) {
                     sum += dct1;
                 }
             }
-            data[i][j] = 2 * C(i) * C(j) * sum;
+            data[i][j] = 0.25 * C(i) * C(j) * sum;
         }
     }
     for (int i = 0; i < 8; i++) {
@@ -355,16 +409,29 @@ void zigzag_extraction(double block[8][8], int zigzag[64]) {
     }
 }
 
+
 void compress_RLE(FILE *f, int zigzag[64]) {
+    int zeros = 0;
     for (int i = 0; i < 64; i++) {
-        if (zigzag[i] != 0)
-            fprintf(f, "%d\n", zigzag[i]);
+        if (zeros < 2) {
+            if (zigzag[i] != 0) {
+                if (zeros == 1) {
+                    fprintf(f, "0\n");
+                    zeros = 0;
+                }
+                fprintf(f, "%d\n", zigzag[i]);
+            }
+            else {
+                zeros++;
+            }
+        }
         else {
             int k = 0;
-            while (zigzag[i + k] == 0) 
+            while (zigzag[i + k - 2] == 0) 
                 k++;
             fprintf(f, "@%d\n", k);
             i += k-1;
+            zeros = 0;
         }
     }
 }
@@ -372,10 +439,27 @@ void compress_RLE(FILE *f, int zigzag[64]) {
 void jpeg_compression(picture *image, char *filename) {
     FILE *fp = fopen(filename, "w");
     fprintf(fp ,"JPEG\n");
-    fprintf(fp, "%d %d", image->width, image->height);
+    if (image->width % 8 == 0) 
+        fprintf(fp, "%d ", image->width);
+    else 
+        fprintf(fp, "%d ", ((image->width % 8) + 1) * 8);
 
+    if (image->height % 8 == 0) 
+        fprintf(fp, "%d\n", image->height);
+    else 
+        fprintf(fp, "%d\n", ((image->height % 8) + 1) * 8);
     
-
+    double block[8][8] = {0};
+    int data[64] = {0};
+    for (int i = 0; i < image->height; i+=8) {
+        for (int j = 0; j < image->width; j+=8) {
+            extract_block(image, block, i, j);
+            DCT(block);
+            quantify(block);
+            zigzag_extraction(block, data);
+            compress_RLE(fp, data);
+        }
+    }    
     fclose(fp);
 }
 
@@ -384,49 +468,39 @@ int main(int argc, char** argv) {
     if (argc == 2) 
         filename = argv[1];
     else {
-        // perror("wrong argument ammount");
-        // exit(1);
-        filename = "exemple.ppm";
+        perror("wrong argument ammount");
+        exit(1);
     }
+
+    char c;
+    int period_pos = 0; // get position of last period in file name
+    for (int i = 0; (c = filename[i]) != '\0'; i++) {
+        if (filename[i] == '.')
+        period_pos = i;
+    }
+
+    // check if extension is ppm
+    if (!((filename[period_pos+1] == 'p') && (filename[period_pos+2] == 'p') && (filename[period_pos+3] =='m'))) {
+        perror("file extension must be .ppm");
+        exit(1);
+    }
+
+    char *new_filename = malloc(0);
+    int new_filename_length = 0;
+    for (int i = 0; i < period_pos; i++) {
+        new_filename = realloc(new_filename, ++new_filename_length);
+        new_filename[new_filename_length-1] = filename[i];   
+    }
+    
+    new_filename = realloc(new_filename, new_filename_length+4);
+    new_filename[new_filename_length] = '.';
+    new_filename[new_filename_length+1] = 'j';
+    new_filename[new_filename_length+2] = 'p';
+    new_filename[new_filename_length+3] = 'g';
 
     picture *pic = get_picture(filename);
 
-    double pixels[8][8] = {
-        {139, 144, 149, 153, 155, 155, 155, 155},
-        {144, 151, 153, 156, 159, 156, 156, 156},
-        {150, 155, 160, 163, 158, 156, 156, 156},
-        {159, 161, 162, 160, 160, 159, 159, 159},
-        {159, 160, 161, 162, 162, 155, 155, 155},
-        {161, 161, 161, 161, 160, 157, 157, 157},
-        {162, 162, 161, 163, 162, 157, 157, 157},
-        {162, 162, 161, 161, 163, 158, 158, 158}
-    };
-
-    DCT(pixels);
-    quantify(pixels);
-    int zigzag[64] = {0};
-    zigzag_extraction(pixels, zigzag);
-
-    FILE *fp = fopen("test.txt", "w");
-
-    compress_RLE(fp, zigzag);
-
-    fclose(fp);
-
-    printf("{\n");
-    for (int i = 0; i < 8; i++) {
-        printf("{");
-        for (int j = 0; j < 7; j++) {
-            printf("%.0lf, ", round(pixels[i][j]));
-        }
-        printf("%.0lf}\n", round(pixels[i][7]));
-    }
-    printf("}\n");
-
-    for (int i = 0; i < 64; i++) {
-        printf("%d ", zigzag[i]);
-    }
-    printf("\n");
+    jpeg_compression(pic, new_filename);
 
     free_pic(pic);
 }
