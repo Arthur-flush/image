@@ -1,18 +1,19 @@
 CC=gcc
-CFLAGS = -Wall -Werror 
+CFLAGS = -Wall -Werror
 EXEC = main
 
 
 .PHONY: clean
 
-default: part2.c 
-	$(CC) $(CFLAGS) -g $? -o $(EXEC) -lm
+default:  
+	part2
 
-install: part2.c
+part1: part1.c
 	$(CC) $(CFLAGS) -O2 $? -o $(EXEC) -lm
 
-run:
-	./$(EXEC)
+part2: part2.c
+	$(CC) $(CFLAGS) -O2 $? -o $(EXEC) -lm
+
 
 clean: 
 	rm $(EXEC)

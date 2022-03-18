@@ -1,6 +1,21 @@
 import numpy as np
 from PIL  import Image as img
 import sys
+from scipy.fftpack import idct #thank you scipy
+
+def idct2(block):
+    return idct(idct(block.T, norm='ortho').T, norm='ortho')
+
+Q = np.array([
+    [16, 11, 10, 16, 24, 40, 51, 61],
+    [12, 12, 14, 19, 26, 58, 60, 55],
+    [14, 13, 16, 24, 40, 57, 69, 56],
+    [14, 17, 22, 29, 51, 87, 80, 62],
+    [18, 22, 37, 56, 68, 109, 103, 77],
+    [24, 35, 55, 64, 81, 104, 113, 92],
+    [49, 64, 78, 87, 103, 121, 120, 101],
+    [72, 92, 95, 98, 112, 100, 103, 99]
+], np.int32)
 
 if len(sys.argv) != 2:
     print(f"wrong argument number should be 1 is {len(sys.argv)-1}")
@@ -23,10 +38,6 @@ width, height = data[1].split(" ")
 width = int(width)
 height = int(height)
 
-pic = np.zeros((height, width))
-
-actual_width = ((width % 8)+1) * 8
-actual_height = ((height % 8)+1) * 8
 
 to_skip = 0
 data = np.array(data[2:])
@@ -98,29 +109,36 @@ positions = np.array((
     (7, 7)
 ))
 
-for i in range(height / 8):
-    for j in range(width / 8):
-        x = 0
-        y = 0
-        for x, y in positions:
-            if to_skip > 0:
-                to_skip -= 1
-                pic[i * 8 + x, j * 8 + y] = int(data[i*actual_width+j])
-                
-        
+def reverse_zigzagextract(data, height, width):
+    pic = np.zeros((height, width))
+    for i in range(int(height / 8)):
+        for j in range(int(width / 8)):
+            for p in range(64):
+                x, y = positions[p]
+                v = data[i*(64 * int(width / 8))+j*64 + p]
+                pic[i * 8 + x, j * 8 + y] = int(v)
+    return pic
 
-for i in range(height):
-    for j in range(width):
-        if to_skip > 0:
-            to_skip -= 1
-            continue
-        if j < width:
-            if data[i*actual_width+j][0] == "@":
-                to_skip = int(data[i*actual_width+j][1:])
-            else:
-                pic[i, j] = int(data[i*actual_width+j])
-
-pic += 127
+l = []
+for v in data:
+    if v[0] == "@":
+        for i in range(int(v[1:])):
+            l.append(0)
+    else:
+        l.append(int(v))
 
 
-img.fromarray(pic, 'L').show()
+pic = reverse_zigzagextract(l, height, width)
+
+
+for i in range(int(height / 8)):
+    for j in range(int(width / 8)):
+        block = pic[(i*8):(i*8)+8, (j*8):(j*8)+8]
+        block *= Q
+        pic[(i*8):(i*8)+8, (j*8):(j*8)+8] = idct2(block)
+
+
+
+
+
+img.fromarray(pic.astype(np.int8), 'L').resize((np.array(pic.shape)*10)).show()
