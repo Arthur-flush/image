@@ -295,70 +295,18 @@ double W3(double x) {
 double (*W[4]) (double);
 
 uchar interpolation_pgm(picture *image, double x, double y) {
-    uchar pixels[N+1][N+1];
     //TODO handle edge pixels
-    if (N == 0) {
-        if ((round(x) >= image.height) || (round(y) >= image.width) || (round(x) < 0) || (round(y) < 0)) 
-            pixels[0][0] = 0;
-
-        else
-            pixels[0][0] = image->pixels[(int)round(x)][(int)round(y)];
-    }
-    if (N == 1) {
-        if ((int(x) >= image.height) || (int(y) >= image.width) || (int(x) < 0) {
-            
-        } 
-        else {
-            if ((int(y) < 0)) // this is hell
-                pixels[0][0] = image->pixels[(int)x][(int)y];
-            pixels[0][1] = image->pixels[(int)x][(int)y+1];
-        }
-        pixels[1][0] = image->pixels[(int)x+1][(int)y];
-        pixels[1][1] = image->pixels[(int)x+1][(int)y+1];
-    }
-    if (N == 2) {
-        pixels[0][0] = image->pixels[(int)x - 1][(int)y - 1];
-        pixels[0][1] = image->pixels[(int)x - 1][(int)y];
-        pixels[0][2] = image->pixels[(int)x - 1][(int)y + 1];
-
-        pixels[1][0] = image->pixels[(int)x][(int)y - 1];
-        pixels[1][1] = image->pixels[(int)x][(int)y];
-        pixels[1][2] = image->pixels[(int)x][(int)y + 1];
-
-        pixels[2][0] = image->pixels[(int)x + 1][(int)y - 1];
-        pixels[2][1] = image->pixels[(int)x + 1][(int)y];
-        pixels[2][2] = image->pixels[(int)x + 1][(int)y + 1];
-    }
-    if (N == 3) {
-        pixels[0][0] = image->pixels[(int)x - 1][(int)y - 1];
-        pixels[0][1] = image->pixels[(int)x - 1][(int)y];
-        pixels[0][2] = image->pixels[(int)x - 1][(int)y + 1];
-        pixels[0][3] = image->pixels[(int)x - 1][(int)y + 2];
-        
-
-        pixels[1][0] = image->pixels[(int)x][(int)y - 1];
-        pixels[1][1] = image->pixels[(int)x][(int)y];
-        pixels[1][2] = image->pixels[(int)x][(int)y + 1];
-        pixels[1][3] = image->pixels[(int)x][(int)y + 2];
-
-        pixels[2][0] = image->pixels[(int)x + 1][(int)y - 1];
-        pixels[2][1] = image->pixels[(int)x + 1][(int)y];
-        pixels[2][2] = image->pixels[(int)x + 1][(int)y + 1];
-        pixels[2][3] = image->pixels[(int)x + 1][(int)y + 2];
-
-        pixels[3][0] = image->pixels[(int)x + 2][(int)y - 1];
-        pixels[3][1] = image->pixels[(int)x + 2][(int)y];
-        pixels[3][2] = image->pixels[(int)x + 2][(int)y + 1];
-        pixels[3][3] = image->pixels[(int)x + 2][(int)y + 2];
-    }
+    double xbegin = ceil(x - ((N+1)/2.));
+    double xend = ceil(x + ((N+1)/2.));
+    double ybegin = ceil(y - ((N+1)/2.));
+    double yend = ceil(y + ((N+1)/2.));
+    
 
     double sum = 0;
-    for (int i = 0; i < N+1; i++) {
-        for (int j = 0; j < N+1; j++) {
-            if (N >= 2)
-                sum += pixels[i][j] * image->pixels[(int)x + i - 1][(int) y + j - 1];
-            else 
-                sum += pixels[i][j] * image->pixels[(int)x + i][(int) y + j];
+    for (int i = 0; i < xend; i++) {
+        for (int j = 0; j < yend; j++) {
+            if ((xbegin + i >= 0) && (ybegin + j >= 0) && (xbegin +i < image->height) && (ybegin + j < image->width))
+            sum += W[N]() * image->pixels[(int)xbegin + i][(int) ybegin + j];
         }
     }
     return sum;
