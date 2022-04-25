@@ -9,7 +9,43 @@ typedef unsigned char uchar;
 
 typedef enum { false, true } bool;
 
+typedef struct List_t {
+    uint value;
+    struct List_t *next;
+} List;
 
+
+List *create_list(uint value) {
+    List *list = malloc(sizeof(List));
+    list->value = value;
+    list->next = NULL;
+    return list;
+}
+
+
+void add_to_list(List *list, uint value) {
+    List *new_list = create_list(value);
+    new_list->next = list;
+    list = new_list;
+}
+
+
+void print_list(List *list) {
+    while (list != NULL) {
+        printf("%d ", list->value);
+        list = list->next;
+    }
+    printf("\n");
+}
+
+
+void free_list(List *list) {
+    while (list != NULL) {
+        List *next = list->next;
+        free(list);
+        list = next;
+    }
+}
 
 typedef struct RGB_t {
     uchar R, G, B;
@@ -440,8 +476,82 @@ picture *sobel_edge_detector(picture *pic) {
     return new_img;
 }
 
-double approximate_derivative(picture * pic, int x, int y) {
-    return (pic->pixels[x+1][y] - pic->pixels[x-1][y]) / 2.0;
+
+
+picture* sobel_x(picture *pic) {
+    const int c = 2;
+
+    picture *new_img = Picture(pic->width, pic->height, pic->value_max, pic->type, false);
+    //for (int i = 1; i < new_img->height-1; i++) {
+    //    for (int j = 1; j < new_img->width-1; j++) {
+    //        new_img->pixels[i][j-1] = 1/(2+c) * (pic->pixels[i-1][j-1] + c*pic->pixels[i][j-1] + pic->pixels[i+1][j-1]);
+    //        new_img->pixels[i-1][j] = 1/(2+c) * (pic->pixels[i-1][j-1] + c*pic->pixels[i-1][j] + pic->pixels[i-1][j+1]);
+    //    }
+    //}
+    const int m1[3] = { 1, c, 1};
+
+    const int m2[3] = {-1, 0, 1};
+
+
+    for (int i = 1; i < pic->height-1; i++) {
+        for (int j = 1; j < pic->width-1; j++) {
+            int valx = 0;
+
+            for (int k = -1; k <= 1; k++) {
+                for (int l = -1; l <= 1; l++) {
+                    valx += m1[1-k] * m2[1-l] * pic->pixels[i+k][j+l];
+                }
+            }
+            
+            valx = abs((int)round((float) valx * 0.25));
+
+            // clamping time
+            //if (valx > new_img->value_max) {
+            //    valx = new_img->value_max;
+            //}
+
+
+            new_img->pixels[i][j] = (uchar)valx;
+        }
+    }
+    return new_img;
+}
+
+picture* sobel_y(picture *pic) {
+    const int c = 2;
+
+    picture *new_img = Picture(pic->width, pic->height, pic->value_max, pic->type, false);
+    //for (int i = 1; i < new_img->height-1; i++) {
+    //    for (int j = 1; j < new_img->width-1; j++) {
+    //        new_img->pixels[i][j-1] = 1/(2+c) * (pic->pixels[i-1][j-1] + c*pic->pixels[i][j-1] + pic->pixels[i+1][j-1]);
+    //        new_img->pixels[i-1][j] = 1/(2+c) * (pic->pixels[i-1][j-1] + c*pic->pixels[i-1][j] + pic->pixels[i-1][j+1]);
+    //    }
+    //}
+    const int m1[3] = { 1, c, 1};
+
+    const int m2[3] = {-1, 0, 1};
+
+
+    for (int i = 1; i < pic->height-1; i++) {
+        for (int j = 1; j < pic->width-1; j++) {
+            int valy = 0;
+            for (int k = -1; k <= 1; k++) {
+                for (int l = -1; l <= 1; l++) {
+                    valy += m2[1-k] * m1[1-l] * pic->pixels[i+k][j+l];
+                }
+            }
+            
+            valy = abs((int)round((float) valy * 0.25));
+
+            // clamping time
+            //if (valy > new_img->value_max) {
+            //    valy = new_img->value_max;
+            //}
+
+            new_img->pixels[i][j] = (uchar)valy;
+        }
+    }
+    return new_img;
 }
 
 float **gradiant_angle(picture *grad_x, picture *grad_y) {
@@ -562,6 +672,119 @@ picture *gaussian_filter(picture *pic) {
     return new_pic;
 }
 
+picture* magnitude(picture *grad_x, picture *grad_y) {
+    picture *new_pic = Picture(grad_x->width, grad_x->height, grad_x->value_max, grad_x->type, false);
+    for (int i = 0; i < grad_x->height; i++) {
+        for (int j = 0; j < grad_x->width; j++) {
+            new_pic->pixels[i][j] = (uchar)round(sqrt(pow(grad_x->pixels[i][j], 2) + pow(grad_y->pixels[i][j], 2)));
+        }
+    }
+    return new_pic;
+}
+
+int pop_from_list(List **list, int index) {
+    int i = 0;
+    while (*list != NULL) {
+        if (i == index) {
+            int val = (*list)->value;
+            //List *tmp = list;
+            *list = (*list)->next;
+            //free(tmp); good idea 
+            return val;
+        }
+        i++;
+        *list = (*list)->next;
+    }
+    return -1;
+}
+
+bool in_list(List *list, int value) {
+    while (list != NULL) {
+        if (list->value == value) {
+            return true;
+        }
+        list = list->next;
+    }
+    return false;
+}
+
+picture *Histerisis_thresholding(picture *pic, int threshold_high, int threshold_low) {
+    picture *new_pic = Picture(pic->width, pic->height, pic->value_max, pic->type, false);
+    List *certain_edge = NULL;
+    for (int i = 0; i < pic->height; i++) {
+        for (int j = 0; j < pic->width; j++) {
+            if (pic->pixels[i][j] > threshold_high) {
+                new_pic->pixels[i][j] = pic->value_max;
+                if (certain_edge == NULL) {
+                    certain_edge = create_list(i * pic->width + j);
+                } else {
+                    add_to_list(certain_edge, i * pic->width + j);
+                }
+            } else if (pic->pixels[i][j] < threshold_low) {
+                new_pic->pixels[i][j] = 0;
+            } else {
+                new_pic->pixels[i][j] = pic->pixels[i][j];
+            }
+        }
+    }
+
+    while (certain_edge != NULL) {
+        int val = pop_from_list(&certain_edge, 0);
+        int i = val / pic->width;
+        int j = val % pic->width;
+        if (i == 0 || j == 0 || i == pic->height-1 || j == pic->width-1) {
+            continue;
+        }
+        if ((new_pic->pixels[i][j] != pic->value_max) && (new_pic->pixels[i][j] != 0)) {
+            for (int k = -1; k <= 1; k++) {
+                for (int l = -1; l <= 1; l++) {
+                    if ((k != 0) && (l != 0)) {
+                        if (new_pic->pixels[i+k][j+l] != 0) {
+                            add_to_list(certain_edge, (i+k) * pic->width + (j+l));
+                            new_pic->pixels[i+k][j+l] = pic->value_max;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // set all certain edges to pic->value_max
+    for (int i = 0; i < pic->height; i++) {
+        for (int j = 0; j < pic->width; j++) {
+            if (new_pic->pixels[i][j] != pic->value_max) {
+                new_pic->pixels[i][j] = 0;
+            }
+        }
+    }
+    
+    return new_pic;
+}
+
+picture* canny_edge_detector(picture *pic) {
+    picture *grad_x = Picture(pic->width, pic->height, pic->value_max, pic->type, false);
+    picture *grad_y = Picture(pic->width, pic->height, pic->value_max, pic->type, false);
+    picture *grad_mag = Picture(pic->width, pic->height, pic->value_max, pic->type, false);
+
+    // apply gaussian filter
+    picture *gaussian = gaussian_filter(pic);
+
+    // calculate gradiant in x and y direction
+    grad_x = sobel_x(gaussian);
+    grad_y = sobel_y(gaussian);
+
+    // calculate gradiant magnitude and direction
+    grad_mag = magnitude(grad_x, grad_y);
+    float **angles = gradiant_angle(grad_x, grad_y);
+
+    // non maxima suppression
+    non_maxima_suppression(grad_mag, angles);
+
+
+    picture* new_pic = Histerisis_thresholding(grad_mag, (pic->value_max/4) * 2, (pic->value_max/8));
+
+    return new_pic;
+}
 
 void hysteresis_thresholding(picture *pic, int low, int high) {
     for (int i = 1; i < pic->height-1; i++) {
@@ -608,15 +831,8 @@ picture *canny_edge_detector(picture *image) {
 
 int main() {
     picture *img = get_picture("Monarch.pgm");
-    picture *new_pic = gaussian_filter(img);
-    float** angles = gradiant_angle(naive_x(new_pic), naive_y(new_pic));
-    picture *grandiant = intensity_gradiant(naive_x(new_pic), naive_y(new_pic));
-    write_picture(grandiant, "Monarch_gradiant.pgm", false);
-    non_maxima_suppression(new_pic, angles);
-    write_picture(new_pic, "Monarch_non_maxima.pgm", false);
-    hysteresis_thresholding(new_pic, 0.1, 0.2);
-    write_picture(new_pic, "Monarch_hysteresis.pgm", false);
-    free(angles);
+    picture *new_img = canny_edge_detector(img);
+    write_picture(new_img, "Monarch_canny.pgm", false);
+    free_pic(new_img);
     free_pic(img);
-    free_pic(new_pic);
 }
