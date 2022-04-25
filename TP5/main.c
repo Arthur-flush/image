@@ -27,6 +27,77 @@ typedef struct picture_t
     };
 } picture;
 
+typedef struct list_t
+{
+    int value;
+    struct list_t *next;
+} list;
+
+// append to list
+void append(list **head, int value)
+{
+    list *new_node = (list *)malloc(sizeof(list));
+    new_node->value = value;
+    new_node->next = NULL;
+
+    if (*head == NULL)
+    {
+        *head = new_node;
+    }
+    else
+    {
+        list *last = *head;
+        while (last->next != NULL)
+        {
+            last = last->next;
+        }
+        last->next = new_node;
+    }
+}
+
+// remove from list
+void remove_from_list(list **head, int value)
+{
+    list *current = *head;
+    list *previous = NULL;
+
+    while (current != NULL && current->value != value)
+    {
+        previous = current;
+        current = current->next;
+    }
+
+    if (current == NULL)
+    {
+        return;
+    }
+
+    if (previous == NULL)
+    {
+        *head = current->next;
+    }
+    else
+    {
+        previous->next = current->next;
+    }
+    free(current);
+}
+
+// free list
+void free_list(list **head)
+{
+    list *current = *head;
+    list *next;
+
+    while (current != NULL)
+    {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+    *head = NULL;
+}
+
 picture *get_picture(char *file_name) {
     picture *pic = malloc(sizeof(picture));
 
@@ -369,6 +440,10 @@ picture *sobel_edge_detector(picture *pic) {
     return new_img;
 }
 
+double approximate_derivative(picture * pic, int x, int y) {
+    return (pic->pixels[x+1][y] - pic->pixels[x-1][y]) / 2.0;
+}
+
 float **gradiant_angle(picture *grad_x, picture *grad_y) {
     float **angles = malloc(sizeof(float*) * grad_x->height);
     if (angles == NULL) {
@@ -383,13 +458,32 @@ float **gradiant_angle(picture *grad_x, picture *grad_y) {
         }
     }
 
-    for (int i = 0; i < grad_x->height; i++) {
-        for (int j = 0; j < grad_x->width; j++) {
-            angles[i][j] = atan2(grad_y->pixels[i][j], grad_x->pixels[i][j]);
+    for (int i = 1; i < grad_x->height-2; i++) {
+        for (int j = 1; j < grad_x->width-1; j++) {
+            angles[i][j] = atan2(approximate_derivative(grad_y, i, j), approximate_derivative(grad_x, i, j));
         }
     }
 
     return angles;
+}
+
+picture *intensity_gradiant(picture *grad_x, picture *grad_y) {
+    picture *new_pic = Picture(grad_x->width, grad_x->height, grad_x->value_max, grad_x->type, false);
+    float **angles = gradiant_angle(grad_x, grad_y);
+
+    for (int i = 1; i < grad_x->height-2; i++) {
+        for (int j = 1; j < grad_x->width-1; j++) {
+            double val_1 = approximate_derivative(grad_y, i, j);
+            double val_2 = approximate_derivative(grad_x, i, j);
+            new_pic->pixels[i][j] = (uchar)round(sqrt(val_1 * val_1 + val_2 * val_2));
+        }
+    }
+
+    for (int i = 0; i < grad_x->height; i++) {
+        free(angles[i]);
+    }
+    free(angles);
+    return new_pic;
 }
 
 uchar interpolation(float x, float y, picture *pic) {
@@ -424,42 +518,105 @@ void non_maxima_suppression(picture *norm, float **angle) {
     }
 }
 
+void createFilter(double gKernel[][5])
+{
+    // set standard deviation to 1.0
+    double sigma = 1.0;
+    double r, s = 2.0 * sigma * sigma;
+    // sum is for normalization
+    double sum = 0.0;
+    // generate 5x5 kernel
+    for (int x = -2; x <= 2; x++)
+    {
+        for(int y = -2; y <= 2; y++)
+        {
+            r = sqrt(x*x + y*y);
+            gKernel[x + 2][y + 2] = (exp(-(r*r)/s))/(M_PI * s);
+            sum += gKernel[x + 2][y + 2];
+        }
+    }
+    // normalize the Kernel
+    for(int i = 0; i < 5; ++i)
+        for(int j = 0; j < 5; ++j)
+            gKernel[i][j] /= sum;
+}
 
 // function that applies a 5 x 5 gaussian filter to a picture
 picture *gaussian_filter(picture *pic) {
     picture *new_pic = Picture(pic->width, pic->height, pic->value_max, pic->type, false);
-    const int m[5][5] = {
-        {1, 4, 6, 4, 1},
-        {4, 16, 24, 16, 4},
-        {6, 24, 36, 24, 6},
-        {4, 16, 24, 16, 4},
-        {1, 4, 6, 4, 1}
-    };
+
+    double gKernel[5][5];
+    createFilter(gKernel);
 
     for (int i = 2; i < pic->height-2; i++) {
         for (int j = 2; j < pic->width-2; j++) {
             int val = 0;
             for (int k = -2; k <= 2; k++) {
                 for (int l = -2; l <= 2; l++) {
-                    val += m[k+2][l+2] * pic->pixels[i+k][j+l];
+                    val += gKernel[k+2][l+2] * pic->pixels[i+k][j+l];
                 }
             }
-            new_pic->pixels[i][j] = (uchar)round((float)val * 0.00626);
+            new_pic->pixels[i][j] = (uchar)round((float)val);
         }
     }
     return new_pic;
 }
 
 
+void hysteresis_thresholding(picture *pic, int low, int high) {
+    for (int i = 1; i < pic->height-1; i++) {
+        for (int j = 1; j < pic->width-1; j++) {
+            if (pic->pixels[i][j] < low * pic->value_max) {
+                pic->pixels[i][j] = 0;
+            } else if (pic->pixels[i][j] > high * pic->value_max) {
+                pic->pixels[i][j] = pic->value_max;
+            }
+        }
+    }
+}
+
+picture *canny_edge_detector(picture *image) {
+    picture *new_img = Picture(image->width, image->height, image->value_max, image->type, false);
+
+    picture *grad_x = naive_x(image);
+    picture *grad_y = naive_y(image);
+
+    float **angles = gradiant_angle(grad_x, grad_y);
+
+    picture *norm = gaussian_filter(grad_x);
+    non_maxima_suppression(norm, angles);
+
+    
+
+    for (int i = 1; i < new_img->height-1; i++) {
+        for (int j = 1; j < new_img->width-1; j++) {
+            
+            for (int k = -1; i <= 1; i++) {
+                for (int l = -1; j <= 1; j++) {
+                    if (norm->pixels[i][j] > norm->pixels[i+k][j+l]) {
+                        norm->pixels[i][j] = 0;
+                    }
+                }
+            }
+
+            new_img->pixels[i][j] = norm->pixels[i][j];
+        }
+    }
+
+    return new_img;
+} 
+
 int main() {
     picture *img = get_picture("Monarch.pgm");
     picture *new_pic = gaussian_filter(img);
-    write_picture(new_pic, "Monarch_blured.pgm", false);
-    free(img);
-    img = new_pic;
-    float** angles = gradiant_angle(naive_x(img), naive_y(img));
-    non_maxima_suppression(img, angles);
-    write_picture(img, "Monarch_non_maxima.pgm", false);
+    float** angles = gradiant_angle(naive_x(new_pic), naive_y(new_pic));
+    picture *grandiant = intensity_gradiant(naive_x(new_pic), naive_y(new_pic));
+    write_picture(grandiant, "Monarch_gradiant.pgm", false);
+    non_maxima_suppression(new_pic, angles);
+    write_picture(new_pic, "Monarch_non_maxima.pgm", false);
+    hysteresis_thresholding(new_pic, 0.1, 0.2);
+    write_picture(new_pic, "Monarch_hysteresis.pgm", false);
     free(angles);
     free_pic(img);
+    free_pic(new_pic);
 }
